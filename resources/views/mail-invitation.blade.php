@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -42,7 +42,7 @@
         amoureux ont besoin d’une réponse avant le 01er
         juillet.</p>
     <p>Vous pourrez confirmer votre présence à tout moment via le lien suivant :
-        <a href="https://www.google.com">https://www.google.com</a>
+        <a target="_blank" href="{{$guest->presence_confirmation_url}}">{{$guest->presence_confirmation_url}}</a>
     </p>
     <br/>
     <p>Ci-joint votre billet d'invitation !</p>

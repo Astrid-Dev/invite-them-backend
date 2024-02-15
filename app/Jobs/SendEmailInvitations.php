@@ -28,10 +28,10 @@ class SendEmailInvitations implements ShouldQueue
      */
     public function handle(): void
     {
+        set_time_limit(0);
         $invitationFileService = new InvitationFileService();
         foreach ($this->guests as $guest) {
-            set_time_limit(0);
-            if ($invitationFileService->hasInvitationFile($guest)) {
+            if (!$invitationFileService->hasInvitationFile($guest)) {
                 $invitationFileService->generateInvitationFile($guest);
             }
             Mail::to($guest->email)->send(new InvitationMail([

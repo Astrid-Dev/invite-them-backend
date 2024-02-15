@@ -28,6 +28,7 @@ class CreateInvitationsFiles implements ShouldQueue
     public function handle(): void
     {
         try {
+            set_time_limit(0);
             $invitationFileService = new InvitationFileService();
             foreach ($this->guests as $guest) {
                 $invitationFileService->generateInvitationFile($guest);

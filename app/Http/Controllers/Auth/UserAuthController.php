@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginFormRequest;
 use App\Http\Requests\UserLoginFormRequest;
 use App\Http\Requests\UserRegisterFormRequest;
+use App\Models\Event;
 use App\Models\User;
 use Illuminate\Http\Response;
 
@@ -38,7 +39,12 @@ class UserAuthController extends Controller
         }
 
         if ($eventCode) {
-            $eventExists = auth('api')->user()->events()->where('code', $eventCode)->first();
+            $eventExists = Event::query()
+                ->whereHas('scanners', function ($query) {
+                    $query->where('user_id', auth('api')->id());
+                })
+                ->where('code', $eventCode)
+                ->exists();
             if (!$eventExists) {
                 auth('api')->logout();
                 return Response(['error' => 'Event not found'], 404);
@@ -57,7 +63,7 @@ class UserAuthController extends Controller
     {
         $user = auth('api')->user();
         if (!empty($eventCode)) {
-            $user->current_event = $user->events()->where('code', $eventCode)->first();
+            $user->current_event = Event::query()->where('code', $eventCode)->first();
         }
         return Response([
             'access_token' => $token,

@@ -7,8 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEventRequest;
 use App\Http\Requests\UpdateEventRequest;
 use App\Jobs\SendEmailInvitations;
+use App\Jobs\SendWhatsappEventReminder;
+use App\Jobs\SendWhatsAppInvitation;
 use App\Mail\InvitationMail;
 use App\Models\Event;
+use App\Services\InvitationFileService;
+use App\Services\WhatsAppService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -125,7 +129,10 @@ class EventController extends Controller
         Gate::authorize('create', Event::class);
         $event = Event::query()->create(array_merge(
             $request->validated(),
-            ['user_id' => auth('api')->id()]
+            [
+                'user_id' => auth('api')->id(),
+                'code' => FunctionsHelper::generateCode()
+            ]
         ));
 
         return response()->json([
@@ -161,8 +168,30 @@ class EventController extends Controller
         return response()->json(['message' => 'Event deleted successfully']);
     }
 
+//    public function sendEmailInvitations($eventId)
+//    {
+//        $event = Event::query()
+//            ->select(['id', 'user_id'])
+//            ->where('user_id', auth('api')->id())
+//            ->where('id', $eventId)
+//            ->firstOrFail();
+//        Gate::authorize('view', $event);
+//
+//        $guests = $event->guests()
+//            ->whereNotNull('email')
+//            ->where('has_send_email_invitation', false)
+//            ->get();
+//
+//        SendEmailInvitations::dispatch($guests);
+//
+//        return response()->json([
+//            'message' => 'Invitations sent successfully',
+//        ]);
+//    }
+
     public function sendEmailInvitations($eventId)
     {
+        set_time_limit(0);
         $event = Event::query()
             ->select(['id', 'user_id'])
             ->where('user_id', auth('api')->id())
@@ -175,15 +204,48 @@ class EventController extends Controller
             ->where('has_send_email_invitation', false)
             ->get();
 
-        SendEmailInvitations::dispatch($guests);
+        $invitationFileService = new InvitationFileService();
+        foreach ($guests as $guest) {
+            if ($invitationFileService->hasInvitationFile($guest)) {
+                $invitationFileService->generateInvitationFile($guest);
+            }
+            Mail::to($guest->email)->send(new InvitationMail([
+                'guest' => $guest,
+            ]));
+
+            $guest->update(['has_send_email_invitation' => true]);
+        }
 
         return response()->json([
             'message' => 'Invitations sent successfully',
         ]);
     }
 
-    public function sendWhatsAppInvitations($eventId)
+//    public function sendWhatsAppInvitations($eventId)
+//    {
+//        $event = Event::query()
+//            ->select(['id', 'user_id'])
+//            ->where('user_id', auth('api')->id())
+//            ->where('id', $eventId)
+//            ->firstOrFail();
+//        Gate::authorize('view', $event);
+//
+//        $guests = $event->guests()
+//            ->whereNotNull('whatsapp')
+//            ->where('has_send_whatsapp_invitation', false)
+//            ->get();
+//
+//        SendWhatsAppInvitation::dispatch($guests);
+//
+//        return response()->json([
+//            'message' => 'Invitations sent successfully',
+//        ]);
+//    }
+
+    public function sendWhatsAppInvitations(WhatsAppService $whatsAppService, $eventId)
     {
+        set_time_limit(0);
+
         $event = Event::query()
             ->select(['id', 'user_id'])
             ->where('user_id', auth('api')->id())
@@ -196,15 +258,80 @@ class EventController extends Controller
             ->where('has_send_whatsapp_invitation', false)
             ->get();
 
-        set_time_limit(3600);
-//        foreach ($guests as $guest) {
-//            FunctionsHelper::sendWhatsAppMessage($guest->whatsapp, $guest->event->name);
-//
-//            $guest->update(['has_send_whatsapp_invitation' => true]);
-//        }
+        foreach ($guests as $guest) {
+            try {
+                $whatsAppService->sendWhatsAppInvitationMessage($guest);
+                $guest->update(['has_send_whatsapp_invitation' => true]);
+            } catch (\Exception $e) {
+                if ($e->getCode() === 524) {
+                    $guest->update(['has_send_whatsapp_invitation' => true]);
+                    continue;
+                } else {
+                    return response()->json([
+                        'message' => 'An error occurred while sending WhatsApp invitations. Please try again later.',
+                    ], 500);
+                }
+            }
+        }
 
         return response()->json([
             'message' => 'Invitations sent successfully',
+        ]);
+    }
+
+//    public function sendWhatsAppEventReminder($eventId)
+//    {
+//        $event = Event::query()
+//            ->select(['id', 'user_id'])
+//            ->where('user_id', auth('api')->id())
+//            ->where('id', $eventId)
+//            ->firstOrFail();
+//        Gate::authorize('view', $event);
+//
+//        $guests = $event->guests()
+//            ->whereNotNull('whatsapp')
+//            ->where('has_send_whatsapp_invitation', true)
+//            ->get();
+//
+//        SendWhatsappEventReminder::dispatch($guests, $event->name);
+//
+//        return response()->json([
+//            'message' => 'Reminders sent successfully',
+//        ]);
+//    }
+
+    public function sendWhatsAppEventReminder(WhatsAppService $whatsAppService, $eventId)
+    {
+        set_time_limit(0);
+
+        $event = Event::query()
+            ->select(['id', 'user_id'])
+            ->where('user_id', auth('api')->id())
+            ->where('id', $eventId)
+            ->firstOrFail();
+        Gate::authorize('view', $event);
+
+        $guests = $event->guests()
+            ->whereNotNull('whatsapp')
+            ->where('has_send_whatsapp_invitation', true)
+            ->get();
+
+        foreach ($guests as $guest) {
+            try {
+                $whatsAppService->sendWhatsAppEventReminder($guest, $event->name);
+            } catch (\Exception $e) {
+                if ($e->getCode() === 524) {
+                    continue;
+                } else {
+                    return response()->json([
+                        'message' => 'An error occurred while sending WhatsApp reminders. Please try again later.',
+                    ], 500);
+                }
+            }
+        }
+
+        return response()->json([
+            'message' => 'Reminders sent successfully',
         ]);
     }
 }

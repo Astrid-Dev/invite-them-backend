@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\GuestConfirmationStatus;
 use Illuminate\Support\Facades\Log;
 use Twilio\Rest\Client;
 
 class WhatsAppService
 {
+    private $endingMessage = "\n\n*NB: Si jamais le lien ne fonctionne pas, veuillez répondre à ce message ou enregistrer ce numéro ou alors copier-coller le lien dans votre navigateur.*\n\nMerci de votre attention!";
+
 //    public function sendWhatsAppMessage()
 //    {
 //        $twilioSid = config('app.twilio.sid');
@@ -31,28 +34,41 @@ class WhatsAppService
 
     public function sendWhatsAppInvitationMessage($guest)
     {
+        $invitationFileService = new InvitationFileService();
+        if (!$invitationFileService->hasInvitationFile($guest)) {
+            $invitationFileService->generateInvitationFile($guest);
+        }
 
         $client = new \GuzzleHttp\Client();
 
-        try {
-            $client->request('POST', 'https://gate.whapi.cloud/messages/document', [
-                'body' => json_encode([
-                    'to' => $guest->whatsapp,
-                    'media' => asset('storage/'.$guest->invitation_file_relative_path),
-                    'caption' => "Le *samedi 27 juillet 2024* à *13 heures*, deux étoiles vont s’unir sous les cieux de la belle ville de *Makénéné* et de sa *paroisse St-Joseph*. Leur amour brille de mille feux et ils veulent le graver à jamais dans leur cœur et dans leur essence.\n*Simon* et *Prisca* vous invitent à partager cette féerie de l’amour avec eux. Les réjouissances se poursuivront à leur domicile le même jour au quartier *Carrière* à partir de *16h* précises.\nMais avant, ils vont communier avec les ancêtres par la cérémonie de la dot le *vendredi 26 juillet 2024* dès *16h*, au domicile des parents de Prisca au quartier *Hôpital de Makénéné*.\nNous espérons que vous accepterez d’être les témoins de la concrétisation de cet amour, drapé d’une tenue chic et glamour.\nPour la circonstance, veuillez laisser vos appareils photos dans le fond de vos poches et vos sacoches, puisqu’ils ont prévu un photographe pour vous permettre de profiter pleinement de la cérémonie.\nPour que tout soit parfait dans les moindres détails, les amoureux ont besoin d’une réponse avant le 01er juillet.\n\nVous pourrez confirmer votre présence à tout moment via le lien suivant : ".$guest->presence_confirmation_url."\n\nCi-joint votre billet d'invitation !",
-                    'filename' => preg_replace('/[^a-zA-Z0-9_ -]/s','', $guest->name) . ' - invitation au mariage de Simon et Prisca.pdf',
-                ]),
-                'headers' => [
-                    'accept' => 'application/json',
-                    'authorization' => 'Bearer '.env('WHAPI_TOKEN'),
-                    'content-type' => 'application/json',
-                ],
-            ]);
-            $guest->update(['has_send_whatsapp_invitation' => true]);
+        $client->request('POST', 'https://gate.whapi.cloud/messages/document', [
+            'body' => json_encode([
+                'to' => $guest->whatsapp,
+                'media' => asset('storage/'.$guest->invitation_file_relative_path),
+                'caption' => "👆Ci-joint votre billet d'invitation !\n\nVous pourrez confirmer votre présence à tout moment via le lien suivant : ".$guest->presence_confirmation_url."\n👆\n\n".$this->endingMessage,
+                'filename' => preg_replace('/[^a-zA-Z0-9_ -]/s','', $guest->name) . ' - invitation au mariage de Simon et Prisca.pdf',
+            ]),
+            'headers' => [
+                'accept' => 'application/json',
+                'authorization' => 'Bearer '.env('WHAPI_TOKEN'),
+                'content-type' => 'application/json',
+            ],
+        ]);
+    }
 
-            Log::info('Invitation sent');
-        } catch (\Exception $e) {
-            Log::error($e->getMessage());
-        }
+    public function sendWhatsAppEventReminder($guest, $eventName)
+    {
+        $client = new \GuzzleHttp\Client();
+        $client->request('POST', 'https://gate.whapi.cloud/messages/text', [
+            'body' => json_encode([
+                'to' => $guest->whatsapp,
+                'body' => "*Rappel* :\n\nVous êtes invité(e) au *Mariage de Simon & Prisca* le *samedi 27 juillet 2024* à *13 heures* à *Makénéné*.\n\n" . ($guest->confirmation_status->value === GuestConfirmationStatus::CONFIRMED->value ? "Vous avez confirmé votre présence." : ($guest->confirmation_status->value === GuestConfirmationStatus::PENDING->value ? "Vous n'avez pas encore confirmé votre présence." : "Vous avez confirmé votre absence.")) . "\n\nPour changer de statut, veuillez cliquer sur le lien suivant : ".$guest->presence_confirmation_url.$this->endingMessage,
+            ]),
+            'headers' => [
+                'accept' => 'application/json',
+                'authorization' => 'Bearer '.env('WHAPI_TOKEN'),
+                'content-type' => 'application/json',
+            ],
+        ]);
     }
 }

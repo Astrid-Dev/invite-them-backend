@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Me;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreScannerRequest;
+use App\Jobs\SendNewScannerAccountEmail;
+use App\Mail\NewScannerAccountEmail;
 use App\Models\Guest;
 use App\Models\Scan;
 use App\Models\Scanner;
@@ -11,6 +13,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class ScannerController extends Controller
 {
@@ -62,10 +66,15 @@ class ScannerController extends Controller
 
     public function createScanners(StoreScannerRequest $request, $eventId)
     {
+        set_time_limit(0);
+
         $userIds = $request->validated()['ids'] ?? null;
         $pseudo = $request->validated()['pseudo'] ?? null;
         $email = $request->validated()['email'] ?? null;
 
+        Gate::authorize('create', [Scanner::class, $eventId]);
+
+        $event = auth()->user()->events()->findOrFail($eventId);
         if (!empty($userIds)) {
             foreach ($userIds as $userId) {
                 Scanner::query()
@@ -73,24 +82,46 @@ class ScannerController extends Controller
                         'user_id' => $userId,
                         'event_id' => $eventId,
                     ]);
+                $user = User::query()
+                    ->find($userId);
+
+                if (!empty($user->email)) {
+//                    SendNewScannerAccountEmail::dispatch($user, $event, false);
+                    $this->sendEmailToScanner($user, $event, false);
+                }
             }
         } else {
+            $password = Str::password(8);
             $user = User::query()
                 ->create([
                     'pseudo' => $pseudo,
                     'email' => $email,
-                    'password' => bcrypt('password'),
+                    'password' => bcrypt($password),
                 ]);
             Scanner::query()
                 ->create([
                     'user_id' => $user->id,
                     'event_id' => $eventId,
                 ]);
+            if (!empty($user->email)) {
+//                SendNewScannerAccountEmail::dispatch($user, $event, true, $password);
+                $this->sendEmailToScanner($user, $event, true, $password);
+            }
         }
 
         return response()->json([
             'message' => 'Scanners created successfully',
         ], 201);
+    }
+
+    private function sendEmailToScanner($user, $event, $userIsNewer, $password = null)
+    {
+        Mail::to($user->email)->send(new NewScannerAccountEmail([
+            'user' => $user,
+            'event' => $event,
+            'user_is_newer' => $userIsNewer,
+            'password' => $password,
+        ]));
     }
 
     public function deleteScanner(Request $request, $eventId, $scannerId)
@@ -108,7 +139,8 @@ class ScannerController extends Controller
             ->withCount('scanners', 'events')
             ->where('id', $scanner->user_id)
             ->first();
-        if ($user->scanners_count === 1 && $user->events_count === 0) {
+
+        if ($user->scanners_count <= 1 && $user->events_count === 0) {
             $user->delete();
         }
         $scanner->delete();
@@ -169,6 +201,9 @@ class ScannerController extends Controller
             ->get();
 
         $scansStats = Scan::query()
+            ->whereHas('event', function ($query) use ($eventId) {
+                $query->where('events.id', $eventId);
+            })
             ->select(DB::raw('count(*) as total_scans'))
             ->addSelect(
                 DB::raw("sum(case when scanner_id = '".auth('api')->id()."' then 1 else 0 end) as scanner_scans")

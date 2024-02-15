@@ -70,6 +70,10 @@ Route::middleware('api')
                                     \App\Http\Controllers\Me\EventController::class,
                                     'sendWhatsappInvitations'
                                 ]);
+                                Route::post('/send-whatsapp-reminders', [
+                                    \App\Http\Controllers\Me\EventController::class,
+                                    'sendWhatsAppEventReminder'
+                                ]);
 
                                 Route::prefix('tables')
                                     ->group(function () {

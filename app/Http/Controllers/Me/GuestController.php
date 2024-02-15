@@ -85,6 +85,8 @@ class GuestController extends Controller
 
     public function createGuests(StoreGuestRequest $request)
     {
+        set_time_limit(0);
+
         $guests = $request->validated()['guests'];
         $eventId = $request->route('eventId');
         $newGuests = [];
@@ -102,16 +104,30 @@ class GuestController extends Controller
                 ]);
             $newGuests[] = $newGuest;
         }
-        CreateInvitationsFiles::dispatch($newGuests);
+//        CreateInvitationsFiles::dispatch($newGuests);
+
+        $invitationFileService = new InvitationFileService();
+        foreach ($newGuests as $guest) {
+            $invitationFileService->generateInvitationFile($guest);
+        }
 
         return response()->json([
             'message' => 'Guests created successfully',
         ], 201);
     }
 
-    public function updateGuest(UpdateGuestRequest $request)
+    public function updateGuest(UpdateGuestRequest $request, InvitationFileService $invitationFileService)
     {
+        set_time_limit(0);
+
         $guest = $request->get('guest');
+        $previousName = $guest->name;
+        $previousSeats = $guest->seats;
+        $incomingName = $request->get('name');
+        $incomingSeats = $request->get('seats');
+        $nameHasChanged = !empty($incomingName) && $previousName !== $incomingName;
+        $seatsHasChanged = !empty($incomingSeats) && $previousSeats !== $incomingSeats;
+
         $guest->fill($request->validated());
         if (!empty($request->get('email')) && $guest->email !== $request->get('email')) {
             $guest->fill(['has_send_email_invitation' => false]);
@@ -120,12 +136,15 @@ class GuestController extends Controller
             $guest->fill(['has_send_whatsapp_invitation' => false]);
         }
 
-        $guest->save();
-
-        if ((!empty($request->get('name')) && $guest->name !== $request->get('name')) ||
-            ((!empty($request->get('seats'))) && $guest->seats !== $request->get('seats'))) {
-            CreateInvitationsFiles::dispatch([$guest]);
+        if ($nameHasChanged || $seatsHasChanged) {
+//            CreateInvitationsFiles::dispatch([$guest]);
+            $invitationFileService->deleteInvitationFile($guest);
+            $invitationFileService->generateInvitationFile($guest);
+            $guest->fill(['has_send_whatsapp_invitation' => false]);
+            $guest->fill(['has_send_email_invitation' => false]);
         }
+
+        $guest->save();
 
         return response()->json([
             'message' => 'Guest updated successfully',

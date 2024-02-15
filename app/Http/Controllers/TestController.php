@@ -7,6 +7,7 @@ use App\Models\Guest;
 use App\Models\Scanner;
 use App\Services\InvitationFileService;
 use App\Services\WhatsAppService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Ilovepdf\Editpdf\ImageElement;
 use Ilovepdf\Editpdf\TextElement;
@@ -22,12 +23,24 @@ class TestController extends Controller
      */
     public function index(WhatsAppService $whatsAppService)
     {
-        set_time_limit(120);
+        set_time_limit(0);
 //        Mail::to('astridjounang@gmail.com')->send(new InvitationMail([
 //            'name' => 'Demo',
 //        ]));
 
-        $whatsAppService->sendWhatsAppInvitationMessage();
+        $guest = Guest::query()
+            ->whereNotNull('whatsapp')
+            ->first();
+
+//        try {
+//            $whatsAppService->sendWhatsAppInvitationMessage($guest);
+//        } catch (\Exception $e) {
+//            if ($e->getCode() === 524) {
+//                dd('Ok');
+//            } else {
+//                dd($e);
+//            }
+//        }
 
 //        $guests = Guest::all();
 //        foreach ($guests as $guest) {

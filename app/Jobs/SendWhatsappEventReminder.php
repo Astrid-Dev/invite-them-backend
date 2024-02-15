@@ -9,14 +9,14 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-class SendWhatsAppInvitation implements ShouldQueue
+class SendWhatsappEventReminder implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * Create a new job instance.
      */
-    public function __construct(protected $guests)
+    public function __construct(protected $guest, protected $eventName)
     {
         //
     }
@@ -29,8 +29,8 @@ class SendWhatsAppInvitation implements ShouldQueue
         set_time_limit(0);
         $whatsAppService = new WhatsAppService();
         foreach ($this->guests as $guest) {
-            $whatsAppService->sendWhatsAppInvitationMessage($guest);
-            $guest->update(['has_send_whatsapp_invitation' => true]);
+            $whatsAppService->sendWhatsAppEventReminder($guest, $this->eventName);
         }
+
     }
 }

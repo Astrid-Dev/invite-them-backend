@@ -19,17 +19,18 @@ class Table extends Model
         'event_id',
     ];
 
-    protected $withCount = [
-        'assignedGuests',
-    ];
-
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
     }
 
-    public function assignedGuests(): HasMany
+    public function guests(): HasMany
     {
         return $this->hasMany(Guest::class);
+    }
+
+    public static function query()
+    {
+        return parent::query()->withSum('guests as assigned_guests_count', 'seats');
     }
 }
