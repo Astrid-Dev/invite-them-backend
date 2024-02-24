@@ -26,7 +26,7 @@ class DatabaseSeeder extends Seeder
             ->create([
                 'name' => 'Mariage de Simon & Prisca',
                 'code' => FunctionsHelper::generateCode(table: 'events', field: 'code'),
-                'date' => '2023-07-27',
+                'date' => '2024-07-27',
                 'user_id' => $user->id
             ]);
 
