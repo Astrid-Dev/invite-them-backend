@@ -131,7 +131,7 @@ class EventController extends Controller
             $request->validated(),
             [
                 'user_id' => auth('api')->id(),
-                'code' => FunctionsHelper::generateCode()
+                'code' => FunctionsHelper::generateCode(table: 'events', field: 'code')
             ]
         ));
 

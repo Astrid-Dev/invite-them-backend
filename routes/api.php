@@ -35,10 +35,10 @@ Route::middleware('api')
                             \App\Http\Controllers\Me\EventController::class,
                             'getUserCreatedEvents'
                         ]);
-                        Route::post('/', [
-                            \App\Http\Controllers\Me\EventController::class,
-                            'createEvent'
-                        ]);
+//                        Route::post('/', [
+//                            \App\Http\Controllers\Me\EventController::class,
+//                            'createEvent'
+//                        ]);
                         Route::get('/stats', [
                             \App\Http\Controllers\Me\EventController::class,
                             'getCreatedEventsStats'
