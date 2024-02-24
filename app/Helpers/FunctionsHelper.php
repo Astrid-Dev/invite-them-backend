@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 class FunctionsHelper
 {
-    public static function generateCode($length = 6, $table = null, $field = null): string
+    public static function generateCode($length = 8, $table = null, $field = null): string
     {
         $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $charactersLength = strlen($characters);

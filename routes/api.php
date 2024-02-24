@@ -19,8 +19,8 @@ Route::middleware('api')
     ->group(function () {
         Route::prefix('auth')
             ->group(function () {
-                Route::post('/register', [UserAuthController::class, 'register'])
-                    ->withoutMiddleware('api');
+//                Route::post('/register', [UserAuthController::class, 'register'])
+//                    ->withoutMiddleware('api');
                 Route::post('/login', [UserAuthController::class, 'login'])
                     ->withoutMiddleware('api');
                 Route::post('/logout', [UserAuthController::class, 'logout']);
