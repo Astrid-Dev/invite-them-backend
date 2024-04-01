@@ -71,4 +71,20 @@ class WhatsAppService
             ],
         ]);
     }
+
+    public function sendNoticeMessage($whatsappNumber)
+    {
+        $client = new \GuzzleHttp\Client();
+        $client->request('POST', 'https://gate.whapi.cloud/messages/text', [
+            'body' => json_encode([
+                'to' => $whatsappNumber,
+                'body' => "Bonjour!🖐\n\nNous vous informons que vous avez été invité(e) à un événement spécial. Les détails vous seront envoyés sous peu.\n\nMerci de votre attention!",
+            ]),
+            'headers' => [
+                'accept' => 'application/json',
+                'authorization' => 'Bearer '.env('WHAPI_TOKEN'),
+                'content-type' => 'application/json',
+            ],
+        ]);
+    }
 }

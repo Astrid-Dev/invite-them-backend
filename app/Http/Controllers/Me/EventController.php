@@ -268,6 +268,7 @@ class EventController extends Controller
                     continue;
                 } else {
                     return response()->json([
+                        'error' => $e,
                         'message' => 'An error occurred while sending WhatsApp invitations. Please try again later.',
                     ], 500);
                 }

@@ -48,7 +48,7 @@ class GuestController extends Controller
             ->where('event_id', $eventId)
             ->findOrFail($guestId);
 
-        Gate::authorize('view', $guest);
+//        Gate::authorize('view', $guest);
 
         return response()->json($guest);
     }

@@ -34,6 +34,10 @@ class DatabaseSeeder extends Seeder
             'user_id' => $user->id
         ]);
 
+        $this->call([
+            ILovePdfApiKeySeeder::class,
+        ]);
+
         // \App\Models\User::factory(10)->create();
 
         // \App\Models\User::factory()->create([

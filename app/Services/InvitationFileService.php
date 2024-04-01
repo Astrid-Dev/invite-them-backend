@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ILovePdfApiKey;
 use Illuminate\Support\Facades\Storage;
 use Ilovepdf\Editpdf\ImageElement;
 use Ilovepdf\Editpdf\TextElement;
@@ -10,6 +11,32 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class InvitationFileService
 {
+    private $ilovepdfApiKey = null;
+
+    public function __construct()
+    {
+        $this->retrieveApiKey();
+    }
+
+    private function retrieveApiKey() {
+        if (empty($this->ilovepdfApiKey) || $this->ilovepdfApiKey->remaining_files <= 0) {
+            $this->ilovepdfApiKey = ILovePdfApiKey::query()
+                ->where('remaining_files', '>', 0)
+                ->first();
+        }
+    }
+
+    private function getILovePdfTask()
+    {
+        return new EditpdfTask($this->ilovepdfApiKey->public_key, $this->ilovepdfApiKey->secret_key);
+    }
+
+    private function decrementRemainingFiles($filesCount = 1)
+    {
+        $this->ilovepdfApiKey->remaining_files -= $filesCount;
+        $this->ilovepdfApiKey->save();
+    }
+
     public function generateInvitationFile($guest)
     {
         set_time_limit(0);
@@ -23,8 +50,9 @@ class InvitationFileService
 
     private function fillInvitation($guest, $filePath, $folder)
     {
-        // Create a new task
-        $editpdfTask = new EditpdfTask(env('ILOVEPDF_PUBLIC_KEY'), env('ILONEPDF_SECRET_KEY'));
+        $this->retrieveApiKey();
+
+        $editpdfTask = $this->getILovePdfTask();
         // Add files to task for upload
         $pdfFile = $editpdfTask->addFile($filePath);
         // Create an element
@@ -72,6 +100,8 @@ class InvitationFileService
         $editpdfTask->execute();
         // Download the package files
         $editpdfTask->download($folder);
+
+        $this->decrementRemainingFiles();
 
         Storage::delete(public_path('qrcode.png'));
     }

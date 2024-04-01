@@ -115,7 +115,7 @@ Route::middleware('api')
                                                 Route::get('/', [
                                                     \App\Http\Controllers\Me\GuestController::class,
                                                     'getGuest'
-                                                ]);
+                                                ])->withoutMiddleware('api');
                                                 Route::put('/', [
                                                     \App\Http\Controllers\Me\GuestController::class,
                                                     'updateGuest'
@@ -128,11 +128,11 @@ Route::middleware('api')
                                                 Route::post('/confirm-presence', [
                                                     \App\Http\Controllers\Me\GuestController::class,
                                                     'confirmGuestPresence'
-                                                ]);
+                                                ])->withoutMiddleware('api');
                                                 Route::post('/confirm-absence', [
                                                     \App\Http\Controllers\Me\GuestController::class,
                                                     'confirmGuestAbsence'
-                                                ]);
+                                                ])->withoutMiddleware('api');
                                             });
                                     });
 

@@ -24,7 +24,7 @@ class UserLoginFormRequest extends FormRequest
         return [
             'pseudo' => ['required', 'string', 'between:3,20'],
             'password' => ['required', 'string', 'between:6,20'],
-            'event_code' => ['sometimes', 'nullable', 'string', 'between:6,6', 'exists:events,code']
+            'event_code' => ['sometimes', 'nullable', 'string', 'between:8,8', 'exists:events,code']
         ];
     }
 }
