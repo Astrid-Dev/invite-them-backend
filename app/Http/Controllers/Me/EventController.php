@@ -13,9 +13,11 @@ use App\Mail\InvitationMail;
 use App\Models\Event;
 use App\Services\InvitationFileService;
 use App\Services\WhatsAppService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class EventController extends Controller
@@ -253,27 +255,30 @@ class EventController extends Controller
             ->firstOrFail();
         Gate::authorize('view', $event);
 
-        $guests = $event->guests()
+        $event->guests()
             ->whereNotNull('whatsapp')
             ->where('has_send_whatsapp_invitation', false)
-            ->get();
+            ->chunkById(25, function (Collection $guests) use ($whatsAppService) {
+                foreach ($guests as $guest) {
+                    try {
+                        $this->sendNoticeMessage($guest->whatsapp);
+                    } catch (\Exception $e) {
+                        Log::error($e->getMessage());
+                    }
 
-        foreach ($guests as $guest) {
-            try {
-                $whatsAppService->sendWhatsAppInvitationMessage($guest);
-                $guest->update(['has_send_whatsapp_invitation' => true]);
-            } catch (\Exception $e) {
-                if ($e->getCode() === 524) {
-                    $guest->update(['has_send_whatsapp_invitation' => true]);
-                    continue;
-                } else {
-                    return response()->json([
-                        'error' => $e,
-                        'message' => 'An error occurred while sending WhatsApp invitations. Please try again later.',
-                    ], 500);
+                    try {
+                        $whatsAppService->sendWhatsAppInvitationMessage($guest);
+                        $guest->update(['has_send_whatsapp_invitation' => true]);
+                    } catch (\Exception $e) {
+                        if ($e->getCode() === 524) {
+                            $guest->update(['has_send_whatsapp_invitation' => true]);
+                            continue;
+                        } else {
+                            abort(500, 'An error occurred while sending WhatsApp invitations. Please try again later.');
+                        }
+                    }
                 }
-            }
-        }
+            });
 
         return response()->json([
             'message' => 'Invitations sent successfully',
@@ -312,24 +317,22 @@ class EventController extends Controller
             ->firstOrFail();
         Gate::authorize('view', $event);
 
-        $guests = $event->guests()
+        $event->guests()
             ->whereNotNull('whatsapp')
             ->where('has_send_whatsapp_invitation', true)
-            ->get();
-
-        foreach ($guests as $guest) {
-            try {
-                $whatsAppService->sendWhatsAppEventReminder($guest, $event->name);
-            } catch (\Exception $e) {
-                if ($e->getCode() === 524) {
-                    continue;
-                } else {
-                    return response()->json([
-                        'message' => 'An error occurred while sending WhatsApp reminders. Please try again later.',
-                    ], 500);
+            ->chunkById(25, function (Collection $guests) use ($whatsAppService, $event) {
+                foreach ($guests as $guest) {
+                    try {
+                        $whatsAppService->sendWhatsAppEventReminder($guest, $event->name);
+                    } catch (\Exception $e) {
+                        if ($e->getCode() === 524) {
+                            continue;
+                        } else {
+                            abort(500, 'An error occurred while sending WhatsApp reminders. Please try again later.');
+                        }
+                    }
                 }
-            }
-        }
+            });
 
         return response()->json([
             'message' => 'Reminders sent successfully',
